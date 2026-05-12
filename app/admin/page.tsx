@@ -2,6 +2,7 @@ import { T, FONT_DISP, FONT_JP, FONT_NUM } from '@/lib/tokens'
 import { isSupabaseConfigured, createAdminClient } from '@/lib/supabase/server'
 import { fetchHotNow } from '@/lib/fetch-rankings'
 import PostGenerator from './PostGenerator'
+import ImageGenerator from './ImageGenerator'
 
 // ── 期間 ──────────────────────────────────────────────────────
 
@@ -364,6 +365,25 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       {/* ── Post Generator ─────────────────────────────────── */}
       <SectionTitle>POST GENERATOR</SectionTitle>
       <PostGenerator items={hotNow.slice(0, 3)} siteUrl={siteUrl} />
+
+      {/* ── Image Generator ─────────────────────────────────── */}
+      <div style={{
+        margin:       '28px 0 0',
+        paddingTop:   24,
+        borderTop:    `1px solid ${T.inkLine}`,
+      }}>
+        <div style={{
+          fontFamily:    FONT_DISP,
+          fontSize:      9,
+          fontWeight:    800,
+          letterSpacing: 3,
+          color:         T.ice,
+          marginBottom:  16,
+        }}>
+          IMAGE CARD
+        </div>
+        <ImageGenerator items={hotNow.slice(0, 3)} siteUrl={siteUrl} />
+      </div>
 
       {/* ── KPI グリッド ────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
