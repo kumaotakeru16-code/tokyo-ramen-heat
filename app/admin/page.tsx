@@ -1,5 +1,7 @@
 import { T, FONT_DISP, FONT_JP, FONT_NUM } from '@/lib/tokens'
 import { isSupabaseConfigured, createAdminClient } from '@/lib/supabase/server'
+import { fetchHotNow } from '@/lib/fetch-rankings'
+import PostGenerator from './PostGenerator'
 
 // ── 期間 ──────────────────────────────────────────────────────
 
@@ -232,6 +234,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   const m = computeMetrics(events)
 
+  // ── Post Generator 用データ
+  const { data: hotNow } = await fetchHotNow()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tokyo-ramen-heat.vercel.app'
+
   // ── 期間ナビ用URL builder
   const navUrl = (p: Period) => `?secret=${encodeURIComponent(secret)}&period=${p}`
 
@@ -354,6 +360,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           </a>
         ))}
       </div>
+
+      {/* ── Post Generator ─────────────────────────────────── */}
+      <SectionTitle>POST GENERATOR</SectionTitle>
+      <PostGenerator items={hotNow.slice(0, 3)} siteUrl={siteUrl} />
 
       {/* ── KPI グリッド ────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>

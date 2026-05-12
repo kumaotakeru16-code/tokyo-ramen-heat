@@ -5,8 +5,8 @@ import { dict, type Lang } from '@/lib/i18n'
 import FlameMark from './FlameMark'
 
 interface HeroProps {
-  tab:     string
-  setTab:  (t: string) => void
+  tab:     'week' | 'month'
+  setTab:  (t: 'week' | 'month') => void
   lang:    Lang
   setLang: (l: Lang) => void
 }
@@ -47,7 +47,7 @@ function HeatTotalChip({ lang }: { lang: Lang }) {
 export default function Hero({ tab, setTab, lang, setLang }: HeroProps) {
   const t = dict[lang]
 
-  const TABS = [
+  const TABS: { k: 'week' | 'month'; label: string; sub: string }[] = [
     { k: 'week',  label: t.tabWeek,  sub: t.tabWeekSub  },
     { k: 'month', label: t.tabMonth, sub: t.tabMonthSub },
   ]
