@@ -1,15 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { T, FONT_DISP, FONT_JP, FONT_NUM } from '@/lib/tokens'
+import { T, FONT_DISP, FONT_JP } from '@/lib/tokens'
 import { formatArea } from '@/lib/area-en'
 import type { StoreTrend } from '@/lib/types'
 
-type Template = 'simple' | 'data_insight'
+export type Template = 'simple' | 'data_insight'
 
 const FALLBACK_URL = 'https://tokyo-ramen-heat.vercel.app'
 
-// ── 投稿文生成 ─────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────
+
+function truncateName(name: string, max = 20): string {
+  return name.length <= max ? name : name.slice(0, max - 1) + '…'
+}
+
+// ── 単店舗投稿文 ───────────────────────────────────────────────
 
 function buildPost(
   item:     StoreTrend,
@@ -57,7 +63,6 @@ function buildPost(
     url,
   ].join('\n')
 
-  // en / data_insight
   return [
     'By Google review momentum,',
     "this week's fastest-growing ramen shop in Tokyo is:",
@@ -71,239 +76,136 @@ function buildPost(
   ].join('\n')
 }
 
+// ── Top 3 Summary 投稿文 ───────────────────────────────────────
+
+function buildSummaryPost(
+  items:   StoreTrend[],
+  lang:    'jp' | 'en',
+  siteUrl: string,
+): string {
+  const url      = siteUrl || FALLBACK_URL
+  const eligible = items
+    .filter(it => !it.isInitialSnapshot && it.reviewsDelta > 0)
+    .slice(0, 3)
+
+  const lines = eligible.map(it => {
+    const name = truncateName(it.name)
+    const area = lang === 'en' ? formatArea(it.area, 'en') : it.area
+    return `#${it.rank} ${name} ${area} (+${it.reviewsDelta})`
+  })
+
+  if (lang === 'jp') return [
+    '今週、東京で急上昇しているラーメン店 Top3。',
+    '',
+    ...lines,
+    '',
+    '🍜 TOKYO RAMEN HEAT',
+    url,
+  ].join('\n')
+
+  return [
+    'Tokyo ramen shops trending this week:',
+    '',
+    ...lines,
+    '',
+    '🍜 TOKYO RAMEN HEAT',
+    url,
+  ].join('\n')
+}
+
 // ── Props ──────────────────────────────────────────────────────
 
-interface PostGeneratorProps {
-  /** ランキング上位3件（hotNow[0..2]） */
-  items:   StoreTrend[]
-  siteUrl: string
-}
+type PostGeneratorProps =
+  | { mode: 'single';  item: StoreTrend; template: Template; siteUrl: string; lang: 'jp' | 'en' }
+  | { mode: 'summary'; items: StoreTrend[];                  siteUrl: string; lang: 'jp' | 'en' }
 
 // ── Component ─────────────────────────────────────────────────
 
-export default function PostGenerator({ items, siteUrl }: PostGeneratorProps) {
-  const [rankIdx,  setRankIdx]  = useState(0)
-  const [template, setTemplate] = useState<Template>('simple')
-  const [copied,   setCopied]   = useState<'jp' | 'en' | null>(null)
+export default function PostGenerator(props: PostGeneratorProps) {
+  const [copied, setCopied] = useState(false)
 
-  const top3    = items.slice(0, 3)
-  const item    = top3[rankIdx] ?? top3[0]
-  const hasData = !!item && !item.isInitialSnapshot && item.reviewsDelta > 0
+  const { lang, siteUrl } = props
 
-  const jpPost = hasData ? buildPost(item, 'jp', template, siteUrl) : ''
-  const enPost = hasData ? buildPost(item, 'en', template, siteUrl) : ''
+  const hasData = props.mode === 'single'
+    ? !props.item.isInitialSnapshot && props.item.reviewsDelta > 0
+    : props.items.some(it => !it.isInitialSnapshot && it.reviewsDelta > 0)
 
-  const copyTo = (text: string, lang: 'jp' | 'en') => {
-    if (!text) return
-    navigator.clipboard.writeText(text)
+  const post = hasData
+    ? props.mode === 'single'
+        ? buildPost(props.item, lang, props.template, siteUrl)
+        : buildSummaryPost(props.items, lang, siteUrl)
+    : ''
+
+  const copyTo = () => {
+    if (!post) return
+    navigator.clipboard.writeText(post)
       .then(() => {
-        setCopied(lang)
-        setTimeout(() => setCopied(null), 2000)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
       })
       .catch(() => {})
   }
 
-  // ── Styles
-  const ctrl = {
-    label: {
-      display: 'block',
-      fontFamily: FONT_DISP,
-      fontSize: 8,
-      fontWeight: 800 as const,
-      letterSpacing: 2,
-      color: T.textFaint,
-      marginBottom: 6,
-    },
-    select: {
-      padding: '7px 12px',
-      background: T.ink3,
-      border: `1px solid ${T.inkLine}`,
-      borderRadius: 8,
-      color: T.textMute,
-      fontFamily: FONT_JP,
-      fontSize: 11,
-      cursor: 'pointer',
-      outline: 'none',
-      minWidth: 200,
-    } as React.CSSProperties,
-  }
-
-  const copyBtnStyle = (lang: 'jp' | 'en'): React.CSSProperties => ({
-    marginTop: 8,
-    padding: '7px 16px',
-    background: copied === lang ? T.green : 'transparent',
-    border: `1px solid ${copied === lang ? T.green : T.inkLine}`,
-    borderRadius: 8,
-    color: copied === lang ? '#fff' : T.textMute,
-    fontFamily: FONT_DISP,
-    fontWeight: 800,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  })
-
-  const taStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    padding: '12px 14px',
-    background: T.ink3,
-    border: `1px solid ${T.inkLine}`,
-    borderRadius: 10,
-    color: T.text,
-    fontFamily: FONT_JP,
-    fontSize: 12,
-    lineHeight: 1.9,
-    resize: 'vertical',
-    outline: 'none',
-    boxSizing: 'border-box',
-    minHeight: 180,
-  }
+  if (!hasData) return (
+    <div style={{
+      padding:      '16px 14px',
+      background:   T.ink2,
+      border:       `1px solid ${T.inkLine}`,
+      borderRadius: 10,
+      fontFamily:   FONT_JP,
+      fontSize:     12,
+      color:        T.textGhost,
+      lineHeight:   1.8,
+    }}>
+      差分データ取得後に生成できます。
+      <br />
+      <span style={{ fontFamily: FONT_DISP, fontSize: 10, letterSpacing: 0.5 }}>
+        (Available after the first ranking update with delta data.)
+      </span>
+    </div>
+  )
 
   return (
     <div>
-
-      {/* ── コントロール行 */}
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 20 }}>
-        <div>
-          <label style={ctrl.label}>RANK</label>
-          <select
-            style={ctrl.select}
-            value={rankIdx}
-            onChange={e => setRankIdx(Number(e.target.value))}
-          >
-            {top3.map((it, i) => {
-              const noData = it.isInitialSnapshot || it.reviewsDelta === 0
-              return (
-                <option key={i} value={i} disabled={noData}>
-                  {`#${String(it.rank).padStart(2, '0')}  ${it.name}${noData ? '  (no delta)' : `  +${it.reviewsDelta} reviews`}`}
-                </option>
-              )
-            })}
-          </select>
-        </div>
-
-        <div>
-          <label style={ctrl.label}>TEMPLATE</label>
-          <select
-            style={ctrl.select}
-            value={template}
-            onChange={e => setTemplate(e.target.value as Template)}
-          >
-            <option value="simple">Simple</option>
-            <option value="data_insight">Data Insight</option>
-          </select>
-        </div>
-      </div>
-
-      {/* ── 選択中店舗プレビュー */}
-      {item && (
-        <div style={{
-          padding: '10px 14px',
-          background: T.ink2,
-          border: `1px solid ${T.inkLine}`,
+      <textarea
+        readOnly
+        value={post}
+        style={{
+          display:      'block',
+          width:        '100%',
+          padding:      '12px 14px',
+          background:   T.ink3,
+          border:       `1px solid ${T.inkLine}`,
           borderRadius: 10,
-          marginBottom: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-        }}>
-          <span style={{
-            fontFamily: FONT_NUM,
-            fontWeight: 900,
-            fontSize: 22,
-            color: T.amber,
-            fontVariantNumeric: 'tabular-nums',
-            minWidth: 40,
-          }}>
-            #{String(item.rank).padStart(2, '0')}
-          </span>
-          <div>
-            <div style={{ fontFamily: FONT_JP, fontWeight: 700, fontSize: 14, color: T.white }}>
-              {item.name}
-            </div>
-            <div style={{ fontFamily: FONT_NUM, fontSize: 11, color: T.textFaint, marginTop: 3 }}>
-              {item.area}
-              {!item.isInitialSnapshot && item.reviewsDelta > 0 && (
-                <>  ·  <span style={{ color: T.amber }}>+{item.reviewsDelta} reviews</span></>
-              )}
-              {' '}  ·  score {item.trendScore}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── データなし */}
-      {!hasData && (
-        <div style={{
-          padding: '16px 14px',
-          background: T.ink2,
-          border: `1px solid ${T.inkLine}`,
-          borderRadius: 10,
-          fontFamily: FONT_JP,
-          fontSize: 12,
-          color: T.textGhost,
-          lineHeight: 1.8,
-        }}>
-          差分データ取得後に生成できます。
-          <br />
-          <span style={{ fontFamily: FONT_DISP, fontSize: 10, letterSpacing: 0.5 }}>
-            (Available after the first ranking update with delta data.)
-          </span>
-        </div>
-      )}
-
-      {/* ── JP / EN テキストエリア */}
-      {hasData && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-          {/* JP */}
-          <div>
-            <div style={{
-              fontFamily: FONT_DISP,
-              fontSize: 9,
-              fontWeight: 800,
-              letterSpacing: 2,
-              color: T.ember,
-              marginBottom: 8,
-            }}>
-              JP
-            </div>
-            <textarea
-              readOnly
-              style={taStyle}
-              value={jpPost}
-            />
-            <button style={copyBtnStyle('jp')} onClick={() => copyTo(jpPost, 'jp')}>
-              {copied === 'jp' ? 'COPIED ✓' : 'COPY JP'}
-            </button>
-          </div>
-
-          {/* EN */}
-          <div>
-            <div style={{
-              fontFamily: FONT_DISP,
-              fontSize: 9,
-              fontWeight: 800,
-              letterSpacing: 2,
-              color: T.ice,
-              marginBottom: 8,
-            }}>
-              EN
-            </div>
-            <textarea
-              readOnly
-              style={taStyle}
-              value={enPost}
-            />
-            <button style={copyBtnStyle('en')} onClick={() => copyTo(enPost, 'en')}>
-              {copied === 'en' ? 'COPIED ✓' : 'COPY EN'}
-            </button>
-          </div>
-
-        </div>
-      )}
-
+          color:        T.text,
+          fontFamily:   FONT_JP,
+          fontSize:     12,
+          lineHeight:   1.9,
+          resize:       'vertical',
+          outline:      'none',
+          boxSizing:    'border-box',
+          minHeight:    props.mode === 'summary' ? 160 : 180,
+        }}
+      />
+      <button
+        onClick={copyTo}
+        style={{
+          marginTop:     8,
+          padding:       '7px 18px',
+          background:    copied ? T.green : 'transparent',
+          border:        `1px solid ${copied ? T.green : T.inkLine}`,
+          borderRadius:  8,
+          color:         copied ? '#fff' : T.textMute,
+          fontFamily:    FONT_DISP,
+          fontWeight:    800,
+          fontSize:      9,
+          letterSpacing: 1.5,
+          cursor:        'pointer',
+          transition:    'all 0.2s',
+        }}
+      >
+        {copied ? 'COPIED ✓' : `COPY ${lang.toUpperCase()}`}
+      </button>
     </div>
   )
 }

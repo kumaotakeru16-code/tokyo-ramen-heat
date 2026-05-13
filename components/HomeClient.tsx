@@ -97,6 +97,16 @@ function EmptyState({ lang }: { lang: Lang }) {
   )
 }
 
+// ── ブラウザ言語検出 (初回訪問時のみ使用) ────────────────────────
+function detectBrowserLang(): Lang {
+  try {
+    const primary = (navigator.languages?.[0] ?? navigator.language ?? '').toLowerCase()
+    return primary.startsWith('ja') ? 'jp' : 'en'
+  } catch {
+    return 'jp'
+  }
+}
+
 // ── メイン ────────────────────────────────────────────────────
 
 interface HomeClientProps {
@@ -111,12 +121,13 @@ export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
   const [lang,     setLang]     = useState<Lang>('jp')
 
   // localStorage 復元 + page_view を1つの effect にまとめる
-  // → lang の復元値を使ってから page_view を送れる
+  // 保存済みがあればそれを最優先、なければブラウザ言語で自動判定
   useEffect(() => {
     const savedLang = localStorage.getItem('trh-lang') as Lang | null
-    const effectiveLang: Lang = (savedLang === 'jp' || savedLang === 'en') ? savedLang : 'jp'
-    if (savedLang === 'jp' || savedLang === 'en') setLang(savedLang)
-
+    const effectiveLang: Lang = (savedLang === 'jp' || savedLang === 'en')
+      ? savedLang
+      : detectBrowserLang()
+    setLang(effectiveLang)
     track({ event_name: 'page_view', path: '/', language: effectiveLang })
   // マウント時に1回だけ実行
   // eslint-disable-next-line react-hooks/exhaustive-deps
