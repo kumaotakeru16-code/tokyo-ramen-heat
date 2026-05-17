@@ -102,7 +102,7 @@ export async function fetchAllData(): Promise<AllDataResult> {
       }
     }
 
-    const { buildRankings, buildRatingMovers, buildFallingWatch } = await import('./build-rankings')
+    const { buildRankings, buildRatingMovers, buildFallingWatch, buildNewEntries } = await import('./build-rankings')
     const rankings = buildRankings(stores)
 
     if (rankings.length === 0) {
@@ -112,18 +112,22 @@ export async function fetchAllData(): Promise<AllDataResult> {
       }
     }
 
-    const hotNow      = rankings.slice(0, 100)
+    const hotNow       = rankings.slice(0, 100)
     const ratingMovers = buildRatingMovers(hotNow)
     const fallingWatch = buildFallingWatch(hotNow)
+    const newEntries   = buildNewEntries(stores, hotNow)
+
+    console.log('[fetchAllData] fallingWatch count:', fallingWatch.length)
+    console.log('[fetchAllData] newEntries count   :', newEntries.length)
 
     return {
       hotNow,
       ratingMovers,
       fallingWatch,
-      newEntries:  [],   // ランキング履歴テーブルができるまで常に空
+      newEntries,
       lastUpdated,
-      storeCount:  stores.length,
-      source:      'supabase',
+      storeCount: stores.length,
+      source:     'supabase',
     }
   } catch (err) {
     console.error('[fetchAllData] Unexpected error:', err)
