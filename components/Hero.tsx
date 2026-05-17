@@ -5,13 +5,28 @@ import { dict, type Lang } from '@/lib/i18n'
 import FlameMark from './FlameMark'
 
 interface HeroProps {
-  tab:     'week' | 'month'
-  setTab:  (t: 'week' | 'month') => void
-  lang:    Lang
-  setLang: (l: Lang) => void
+  tab:         'week' | 'month'
+  setTab:      (t: 'week' | 'month') => void
+  lang:        Lang
+  setLang:     (l: Lang) => void
+  lastUpdated: string | null
+  storeCount:  number
 }
 
-function HeatTotalChip({ lang }: { lang: Lang }) {
+function formatLastUpdated(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  // JST = UTC+9
+  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
+  const yyyy = jst.getUTCFullYear()
+  const mm   = String(jst.getUTCMonth() + 1).padStart(2, '0')
+  const dd   = String(jst.getUTCDate()).padStart(2, '0')
+  const hh   = String(jst.getUTCHours()).padStart(2, '0')
+  const min  = String(jst.getUTCMinutes()).padStart(2, '0')
+  return `${yyyy}.${mm}.${dd} · ${hh}:${min} JST`
+}
+
+function HeatTotalChip({ lang, storeCount }: { lang: Lang; storeCount: number }) {
   const t = dict[lang]
   return (
     <div
@@ -38,13 +53,13 @@ function HeatTotalChip({ lang }: { lang: Lang }) {
       <span
         style={{ color: T.text, fontWeight: 700, fontFamily: FONT_NUM }}
       >
-        {t.monitoring(284)}
+        {t.monitoring(storeCount)}
       </span>
     </div>
   )
 }
 
-export default function Hero({ tab, setTab, lang, setLang }: HeroProps) {
+export default function Hero({ tab, setTab, lang, setLang, lastUpdated, storeCount }: HeroProps) {
   const t = dict[lang]
 
   const TABS: { k: 'week' | 'month'; label: string; sub: string }[] = [
@@ -161,7 +176,9 @@ export default function Hero({ tab, setTab, lang, setLang }: HeroProps) {
             }}
           >
             <div>UPDATED</div>
-            <div style={{ color: T.textMute, fontWeight: 600 }}>2026.05.09 · 18:40 JST</div>
+            <div style={{ color: T.textMute, fontWeight: 600 }}>
+              {formatLastUpdated(lastUpdated)}
+            </div>
           </div>
         </div>
       </div>
@@ -301,7 +318,7 @@ export default function Hero({ tab, setTab, lang, setLang }: HeroProps) {
           ))}
         </div>
 
-        <HeatTotalChip lang={lang} />
+        <HeatTotalChip lang={lang} storeCount={storeCount} />
       </div>
     </section>
   )

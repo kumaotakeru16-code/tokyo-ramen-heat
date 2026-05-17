@@ -1,4 +1,4 @@
-import type { StoreTrend } from './types'
+import type { StoreTrend, RatingMover, FallingStore } from './types'
 
 // ── Supabase クエリ結果の型 ────────────────────────────────────
 
@@ -126,4 +126,33 @@ export function buildRankings(stores: StoreRow[]): StoreTrend[] {
     }))
     .sort((a, b) => b.trendScore - a.trendScore)
     .map((s, i) => ({ ...s, rank: i + 1 }))
+}
+
+export function buildRatingMovers(trends: StoreTrend[]): RatingMover[] {
+  return trends
+    .filter(t => !t.isInitialSnapshot && t.ratingDelta > 0)
+    .sort((a, b) => b.ratingDelta - a.ratingDelta)
+    .map(t => ({
+      name:          t.name,
+      area:          t.area,
+      delta:         t.ratingDelta,
+      rating:        t.rating,
+      pct:           t.ratingDeltaPct,
+      googleMapsUrl: t.googleMapsUrl,
+    }))
+}
+
+export function buildFallingWatch(trends: StoreTrend[]): FallingStore[] {
+  return trends
+    .filter(t => !t.isInitialSnapshot && t.reviewsDelta > 0 && t.ratingDelta < 0)
+    .sort((a, b) => a.ratingDelta - b.ratingDelta)
+    .map(t => ({
+      name:          t.name,
+      area:          t.area,
+      rating:        t.rating,
+      delta:         t.ratingDelta,
+      pct:           t.ratingDeltaPct,
+      reviewsDelta:  t.reviewsDelta,
+      googleMapsUrl: t.googleMapsUrl,
+    }))
 }

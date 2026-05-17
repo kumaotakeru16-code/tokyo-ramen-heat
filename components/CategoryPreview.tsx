@@ -4,7 +4,8 @@ import { T, FONT_JP, FONT_NUM, FONT_DISP, FONT_STORE } from '@/lib/tokens'
 import { dict, type Lang } from '@/lib/i18n'
 import { formatArea } from '@/lib/area-en'
 import { track } from '@/lib/analytics'
-import { NEW_ENTRIES, RATING_MOVERS, FALLING_WATCH } from '@/data/mockStores'
+import type { FallingStore, RatingMover, NewEntry } from '@/lib/types'
+import type { DataSource } from '@/lib/fetch-rankings'
 import Stars from './Stars'
 import MapPin from './MapPin'
 
@@ -98,13 +99,49 @@ function StoreInfo({ name, area, rating, lang }: { name: string; area: string; r
   )
 }
 
+// ── 共通: カテゴリ別 空状態 ────────────────────────────────────
+const CAT_EMPTY: Record<'new' | 'up' | 'down', { jp: string; en: string }> = {
+  new: {
+    jp: '今回は初ランクイン店舗が検出されませんでした。\n次回更新後に再確認してください。',
+    en: 'No new entries detected this time.\nCheck again after the next update.',
+  },
+  up: {
+    jp: '今回は評価上昇の店舗がありません。\n次回更新後に再確認してください。',
+    en: 'No rating movers this time.\nCheck again after the next update.',
+  },
+  down: {
+    jp: '今回は急落ウォッチの対象店舗がありません。\n次回更新後に再確認してください。',
+    en: 'No stores in watch list this time.\nCheck again after the next update.',
+  },
+}
+
+function CatEmptyState({ cat, lang }: { cat: 'new' | 'up' | 'down'; lang: Lang }) {
+  const msg = CAT_EMPTY[cat][lang]
+  return (
+    <div style={{
+      padding: '24px 16px',
+      background: T.ink2,
+      border: `1px solid ${T.inkLine}`,
+      borderRadius: 12,
+      fontFamily: FONT_JP,
+      fontSize: 12,
+      color: T.textGhost,
+      lineHeight: 1.8,
+      whiteSpace: 'pre-line',
+      textAlign: 'center',
+    }}>
+      {msg}
+    </div>
+  )
+}
+
 // ── 初ランクイン ──────────────────────────────────────────────
-function NewInsPanel({ lang }: { lang: Lang }) {
+function NewInsPanel({ items, lang }: { items: NewEntry[]; lang: Lang }) {
   const t = dict[lang]
-  if (NEW_ENTRIES.length === 0) return null
+  if (items.length === 0) return <CatEmptyState cat="new" lang={lang} />
   return (
     <div>
-      {NEW_ENTRIES.map((it, i) => (
+      {items.map((it, i) => (
         <CompactCard key={i}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'flex-start' }}>
             <StoreInfo name={it.name} area={it.area} rating={it.rating} lang={lang} />
@@ -158,12 +195,12 @@ function NewInsPanel({ lang }: { lang: Lang }) {
 }
 
 // ── 評価急上昇 ─────────────────────────────────────────────────
-function RatingMoversPanel({ lang }: { lang: Lang }) {
+function RatingMoversPanel({ items, lang }: { items: RatingMover[]; lang: Lang }) {
   const t = dict[lang]
-  if (RATING_MOVERS.length === 0) return null
+  if (items.length === 0) return <CatEmptyState cat="up" lang={lang} />
   return (
     <div>
-      {RATING_MOVERS.map((it, i) => (
+      {items.map((it, i) => (
         <CompactCard key={i}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'flex-start' }}>
             <StoreInfo name={it.name} area={it.area} rating={it.rating} lang={lang} />
@@ -214,12 +251,12 @@ function RatingMoversPanel({ lang }: { lang: Lang }) {
 }
 
 // ── 急落ウォッチ ───────────────────────────────────────────────
-function FallingWatchPanel({ lang }: { lang: Lang }) {
+function FallingWatchPanel({ items, lang }: { items: FallingStore[]; lang: Lang }) {
   const t = dict[lang]
-  if (FALLING_WATCH.length === 0) return null
+  if (items.length === 0) return <CatEmptyState cat="down" lang={lang} />
   return (
     <div>
-      {FALLING_WATCH.map((it, i) => (
+      {items.map((it, i) => (
         <CompactCard key={i}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'flex-start' }}>
             <StoreInfo name={it.name} area={it.area} rating={it.rating} lang={lang} />
@@ -289,13 +326,19 @@ function FallingWatchPanel({ lang }: { lang: Lang }) {
 
 // ── デフォルトエクスポート ────────────────────────────────────
 interface CategoryPreviewProps {
-  cat:  string
-  lang: Lang
+  cat:          string
+  lang:         Lang
+  newEntries:   NewEntry[]
+  ratingMovers: RatingMover[]
+  fallingWatch: FallingStore[]
+  source:       DataSource
 }
 
-export default function CategoryPreview({ cat, lang }: CategoryPreviewProps) {
-  if (cat === 'new')  return <NewInsPanel lang={lang} />
-  if (cat === 'up')   return <RatingMoversPanel lang={lang} />
-  if (cat === 'down') return <FallingWatchPanel lang={lang} />
+export default function CategoryPreview({
+  cat, lang, newEntries, ratingMovers, fallingWatch, source,
+}: CategoryPreviewProps) {
+  if (cat === 'new')  return <NewInsPanel    items={newEntries}   lang={lang} />
+  if (cat === 'up')   return <RatingMoversPanel items={ratingMovers} lang={lang} />
+  if (cat === 'down') return <FallingWatchPanel items={fallingWatch} lang={lang} />
   return null
 }

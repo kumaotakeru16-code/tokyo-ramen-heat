@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react'
 import { T, FONT_JP, FONT_DISP, FONT_NUM } from '@/lib/tokens'
 import { dict, type Lang } from '@/lib/i18n'
 import { track } from '@/lib/analytics'
-import type { StoreTrend } from '@/lib/types'
-import type { DataSource } from '@/lib/fetch-rankings'
-import { NEW_ENTRIES, RATING_MOVERS, FALLING_WATCH } from '@/data/mockStores'
+import type { StoreTrend, FallingStore, RatingMover, NewEntry } from '@/lib/types'
+import type { AllDataResult } from '@/lib/fetch-rankings'
 
 import LiveTicker      from './LiveTicker'
 import Hero            from './Hero'
@@ -109,19 +108,22 @@ function detectBrowserLang(): Lang {
 
 // ── メイン ────────────────────────────────────────────────────
 
-interface HomeClientProps {
-  hotNow:     StoreTrend[]
-  dataSource: DataSource
-}
+type HomeClientProps = AllDataResult
 
-export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
+export default function HomeClient({
+  hotNow,
+  ratingMovers,
+  fallingWatch,
+  newEntries,
+  lastUpdated,
+  storeCount,
+  source,
+}: HomeClientProps) {
   const [tab,      setTab]      = useState<'week' | 'month'>('week')
   const [cat,      setCat]      = useState<CatKey>('hot')
   const [expanded, setExpanded] = useState(false)
   const [lang,     setLang]     = useState<Lang>('jp')
 
-  // localStorage 復元 + page_view を1つの effect にまとめる
-  // 保存済みがあればそれを最優先、なければブラウザ言語で自動判定
   useEffect(() => {
     const savedLang = localStorage.getItem('trh-lang') as Lang | null
     const effectiveLang: Lang = (savedLang === 'jp' || savedLang === 'en')
@@ -129,7 +131,6 @@ export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
       : detectBrowserLang()
     setLang(effectiveLang)
     track({ event_name: 'page_view', path: '/', language: effectiveLang })
-  // マウント時に1回だけ実行
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -180,16 +181,16 @@ export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
     : Math.min(hotNow.length, HOT_INITIAL)
 
   const NON_HOT_COUNTS: Record<'new' | 'up' | 'down', number> = {
-    new:  NEW_ENTRIES.length,
-    up:   RATING_MOVERS.length,
-    down: FALLING_WATCH.length,
+    new:  newEntries.length,
+    up:   ratingMovers.length,
+    down: fallingWatch.length,
   }
 
   const countLabel = cat === 'hot'
     ? t.topStores(visibleHot, hotNow.length)
     : t.storesDetected(NON_HOT_COUNTS[cat as 'new' | 'up' | 'down'])
 
-  const hotIsEmpty = dataSource === 'supabase' && hotNow.length === 0
+  const hotIsEmpty = source === 'supabase' && hotNow.length === 0
 
   return (
     <div
@@ -203,8 +204,13 @@ export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
         position: 'relative',
       }}
     >
-      <LiveTicker />
-      <Hero tab={tab} setTab={setTab} lang={lang} setLang={handleSetLang} />
+      <LiveTicker items={hotNow} />
+      <Hero
+        tab={tab} setTab={setTab}
+        lang={lang} setLang={handleSetLang}
+        lastUpdated={lastUpdated}
+        storeCount={storeCount}
+      />
 
       <CategoryTabs active={cat} setActive={handleSetCat} lang={lang} />
 
@@ -249,7 +255,14 @@ export default function HomeClient({ hotNow, dataSource }: HomeClientProps) {
         )
       ) : (
         <div style={{ padding: '0 18px' }}>
-          <CategoryPreview cat={cat} lang={lang} />
+          <CategoryPreview
+            cat={cat}
+            lang={lang}
+            newEntries={newEntries}
+            ratingMovers={ratingMovers}
+            fallingWatch={fallingWatch}
+            source={source}
+          />
         </div>
       )}
 
